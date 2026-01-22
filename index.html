@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>证件照处理工具</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        accent: '#0ea5e9',
+                        neutral: '#f1f5f9',
+                        'neutral-dark': '#334155',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'inner-lg': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn {
+                @apply px-4 py-2 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+            }
+            .btn-primary {
+                @apply bg-primary text-white hover:bg-blue-600 focus:ring-blue-500;
+            }
+            .btn-secondary {
+                @apply bg-secondary text-white hover:bg-slate-600 focus:ring-slate-500;
+            }
+            .btn-outline {
+                @apply border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500;
+            }
+            .input-field {
+                @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+            }
+            .card {
+                @apply bg-white rounded-lg shadow-md p-6;
+            }
+            .badge {
+                @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">
+                    <i class="fa fa-camera mr-2 text-primary"></i>证件照处理工具
+                </h1>
+                <div class="flex space-x-4">
+                    <button id="helpBtn" class="btn btn-outline">
+                        <i class="fa fa-question-circle mr-1"></i> 使用帮助
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 左侧：上传和预览区域 -->
+            <div class="lg:col-span-2">
+                <div class="card h-full">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">照片预览</h2>
+                    
+                    <!-- 上传区域 -->
+                    <div id="uploadContainer" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center mb-6 cursor-pointer hover:border-primary transition-colors">
+                        <input type="file" id="fileInput" class="hidden" accept="image/*">
+                        <i class="fa fa-cloud-upload text-4xl text-gray-400 mb-3"></i>
+                        <p class="text-gray-600 mb-2">点击或拖拽上传照片</p>
+                        <p class="text-sm text-gray-500">支持 JPG、PNG 格式，建议分辨率不低于 600×800</p>
+                    </div>
+                    
+                    <!-- 预览区域 -->
+                    <div id="previewContainer" class="hidden">
+                        <div class="relative mb-4">
+                            <canvas id="previewCanvas" class="mx-auto border border-gray-200 bg-white shadow-inner-lg"></canvas>
+                            <div id="loadingOverlay" class="hidden absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                <div class="text-white">
+                                    <i class="fa fa-spinner fa-spin fa-3x"></i>
+                                    <p class="mt-2">处理中...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-center space-x-4">
+                            <button id="downloadBtn" class="btn btn-primary">
+                                <i class="fa fa-download mr-1"></i> 下载照片
+                            </button>
+                            <button id="resetBtn" class="btn btn-outline">
+                                <i class="fa fa-refresh mr-1"></i> 重新上传
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧：功能控制面板 -->
+            <div class="lg:col-span-1">
+                <div class="card h-full">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">编辑工具</h2>
+                    
+                    <!-- 尺寸调整 -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium text-gray-700 mb-3">尺寸调整</h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">预设尺寸</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button class="size-preset btn btn-outline text-sm" data-width="295" data-height="413" data-name="1寸">1寸 (295×413)</button>
+                                <button class="size-preset btn btn-outline text-sm" data-width="413" data-height="579" data-name="2寸">2寸 (413×579)</button>
+                                <button class="size-preset btn btn-outline text-sm" data-width="600" data-height="600" data-name="正方形">正方形 (600×600)</button>
+                                <button class="size-preset btn btn-outline text-sm" data-width="600" data-height="800" data-name="护照">护照 (600×800)</button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">自定义尺寸</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="widthInput" class="block text-xs text-gray-500 mb-1">宽度 (像素)</label>
+                                    <input type="number" id="widthInput" class="input-field" min="100" max="2000" value="600">
+                                </div>
+                                <div>
+                                    <label for="heightInput" class="block text-xs text-gray-500 mb-1">高度 (像素)</label>
+                                    <input type="number" id="heightInput" class="input-field" min="100" max="2000" value="800">
+                                </div>
+                            </div>
+                            <button id="applySizeBtn" class="btn btn-primary w-full mt-3">
+                                应用尺寸
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 图像压缩 -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-3">图像压缩</h3>
+                        
+                        <div class="mb-4">
+                            <label for="qualitySlider" class="block text-sm font-medium text-gray-700 mb-1">压缩质量: <span id="qualityValue">90%</span></label>
+                            <input type="range" id="qualitySlider" min="10" max="100" value="90" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">输出格式</label>
+                            <div class="flex space-x-2">
+                                <button id="formatJpg" class="format-btn btn btn-primary flex-1" data-format="jpg">
+                                    <i class="fa fa-file-image-o mr-1"></i> JPG
+                                </button>
+                                <button id="formatPng" class="format-btn btn btn-outline flex-1" data-format="png">
+                                    <i class="fa fa-file-image-o mr-1"></i> PNG
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 p-3 bg-blue-50 rounded-md">
+                            <p class="text-sm text-blue-700">
+                                <i class="fa fa-info-circle mr-1"></i> 
+                                提示：降低压缩质量可以减小文件体积，但会影响图像清晰度。
+                                JPG格式适合照片，文件较小；PNG格式支持透明背景，文件较大。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 帮助模态框 -->
+    <div id="helpModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">使用帮助</h2>
+                    <button id="closeHelpBtn" class="text-gray-500 hover:text-gray-700">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="prose">
+                    <h3>如何使用证件照处理工具</h3>
+                    <ol>
+                        <li><strong>上传照片</strong>：点击上传区域或拖拽照片到指定区域。</li>
+                        <li><strong>调整尺寸</strong>：
+                            <ul>
+                                <li>选择预设尺寸（1寸、2寸、正方形、护照）</li>
+                                <li>或输入自定义宽度和高度，点击"应用尺寸"</li>
+                            </ul>
+                        </li>
+                        <li><strong>图像压缩</strong>：
+                            <ul>
+                                <li>调整压缩质量滑块，降低质量可减小文件体积</li>
+                                <li>选择输出格式（JPG或PNG）</li>
+                            </ul>
+                        </li>
+                        <li><strong>下载照片</strong>：点击"下载照片"按钮保存处理后的证件照</li>
+                    </ol>
+                    
+                    <h3>最佳实践</h3>
+                    <ul>
+                        <li>上传正面、清晰的照片，头部占画面比例适中</li>
+                        <li>穿着与背景色有明显区别的衣服</li>
+                        <li>确保光线均匀，避免强烈阴影</li>
+                        <li>对于重要证件照，建议先预览效果再下载使用</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalImage = null;
+        let currentImage = null;
+        let currentWidth = 600;
+        let currentHeight = 800;
+        let currentQuality = 0.9; // 压缩质量 (0-1)
+        let currentFormat = 'image/jpeg'; // 输出格式
+        
+        // DOM 元素
+        const fileInput = document.getElementById('fileInput');
+        const uploadContainer = document.getElementById('uploadContainer');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const ctx = previewCanvas.getContext('2d');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const widthInput = document.getElementById('widthInput');
+        const heightInput = document.getElementById('heightInput');
+        const applySizeBtn = document.getElementById('applySizeBtn');
+        const qualitySlider = document.getElementById('qualitySlider');
+        const qualityValue = document.getElementById('qualityValue');
+        const formatBtns = document.querySelectorAll('.format-btn');
+        const sizePresetBtns = document.querySelectorAll('.size-preset');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+        
+        // 初始化
+        function init() {
+            // 上传区域事件
+            uploadContainer.addEventListener('click', () => fileInput.click());
+            uploadContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadContainer.classList.add('border-primary');
+            });
+            uploadContainer.addEventListener('dragleave', () => {
+                uploadContainer.classList.remove('border-primary');
+            });
+            uploadContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadContainer.classList.remove('border-primary');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 文件输入事件
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+            
+            // 下载按钮事件
+            downloadBtn.addEventListener('click', downloadImage);
+            
+            // 重置按钮事件
+            resetBtn.addEventListener('click', resetApp);
+            
+            // 应用尺寸按钮事件
+            applySizeBtn.addEventListener('click', applyCustomSize);
+            
+            // 压缩质量滑块事件
+            qualitySlider.addEventListener('input', () => {
+                const value = qualitySlider.value;
+                qualityValue.textContent = `${value}%`;
+                currentQuality = value / 100;
+            });
+            
+            // 格式选择按钮事件
+            formatBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const format = btn.dataset.format;
+                    currentFormat = format === 'jpg' ? 'image/jpeg' : 'image/png';
+                    
+                    // 更新按钮状态
+                    formatBtns.forEach(b => {
+                        b.classList.remove('btn-primary');
+                        b.classList.add('btn-outline');
+                    });
+                    btn.classList.remove('btn-outline');
+                    btn.classList.add('btn-primary');
+                });
+            });
+            
+            // 尺寸预设按钮事件
+            sizePresetBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const width = parseInt(btn.dataset.width);
+                    const height = parseInt(btn.dataset.height);
+                    const name = btn.dataset.name;
+                    
+                    // 更新输入框值
+                    widthInput.value = width;
+                    heightInput.value = height;
+                    
+                    // 应用尺寸
+                    currentWidth = width;
+                    currentHeight = height;
+                    applySize();
+                    
+                    // 更新按钮状态
+                    sizePresetBtns.forEach(b => b.classList.remove('bg-primary', 'text-white'));
+                    btn.classList.add('bg-primary', 'text-white');
+                });
+            });
+            
+            // 移除背景替换相关的功能
+            // 背景预设按钮事件已删除
+            
+            // 帮助按钮事件
+            helpBtn.addEventListener('click', () => {
+                helpModal.classList.remove('hidden');
+            });
+            
+            // 关闭帮助模态框事件
+            closeHelpBtn.addEventListener('click', () => {
+                helpModal.classList.add('hidden');
+            });
+            
+            // 点击模态框背景关闭
+            helpModal.addEventListener('click', (e) => {
+                if (e.target === helpModal) {
+                    helpModal.classList.add('hidden');
+                }
+            });
+        }
+        
+        // 处理上传的文件
+        function handleFile(file) {
+            // 检查文件类型
+            if (!file.type.match('image.*')) {
+                alert('请上传图片文件！');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // 显示加载中
+                    loadingOverlay.classList.remove('hidden');
+                    
+                    // 存储原始图像
+                    originalImage = img;
+                    currentImage = img;
+                    
+                    // 应用默认尺寸和背景
+                    applySize();
+                    
+                    // 切换到预览模式
+                    uploadContainer.classList.add('hidden');
+                    previewContainer.classList.remove('hidden');
+                    
+                    // 隐藏加载中
+                    setTimeout(() => {
+                        loadingOverlay.classList.add('hidden');
+                    }, 500);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 应用尺寸
+        function applySize() {
+            if (!currentImage) return;
+            
+            // 设置画布尺寸
+            previewCanvas.width = currentWidth;
+            previewCanvas.height = currentHeight;
+            
+            // 计算图像在画布上的位置和大小（保持纵横比）
+            const imgRatio = currentImage.width / currentImage.height;
+            const canvasRatio = currentWidth / currentHeight;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (imgRatio > canvasRatio) {
+                // 图像更宽，以高度为准
+                drawHeight = currentHeight;
+                drawWidth = drawHeight * imgRatio;
+                offsetX = (currentWidth - drawWidth) / 2;
+                offsetY = 0;
+            } else {
+                // 图像更高，以宽度为准
+                drawWidth = currentWidth;
+                drawHeight = drawWidth / imgRatio;
+                offsetX = 0;
+                offsetY = (currentHeight - drawHeight) / 2;
+            }
+            
+            // 绘制白色背景和图像
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, currentWidth, currentHeight);
+            ctx.drawImage(currentImage, offsetX, offsetY, drawWidth, drawHeight);
+        }
+        
+        // 应用自定义尺寸
+        function applyCustomSize() {
+            const width = parseInt(widthInput.value);
+            const height = parseInt(heightInput.value);
+            
+            if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
+                alert('请输入有效的宽度和高度！');
+                return;
+            }
+            
+            currentWidth = width;
+            currentHeight = height;
+            applySize();
+            
+            // 重置尺寸预设按钮状态
+            sizePresetBtns.forEach(b => b.classList.remove('bg-primary', 'text-white'));
+        }
+        
+        // 移除背景替换功能
+        // applyBackground 函数已删除
+        
+        // 下载图像
+        function downloadImage() {
+            const link = document.createElement('a');
+            const format = currentFormat === 'image/jpeg' ? 'jpg' : 'png';
+            link.download = `证件照_${currentWidth}x${currentHeight}.${format}`;
+            link.href = previewCanvas.toDataURL(currentFormat, currentQuality);
+            link.click();
+        }
+        
+        // 重置应用
+        function resetApp() {
+            // 重置变量
+            originalImage = null;
+            currentImage = null;
+            currentWidth = 600;
+            currentHeight = 800;
+            currentQuality = 0.9;
+            currentFormat = 'image/jpeg';
+            
+            // 重置UI
+            uploadContainer.classList.remove('hidden');
+            previewContainer.classList.add('hidden');
+            widthInput.value = '600';
+            heightInput.value = '800';
+            qualitySlider.value = '90';
+            qualityValue.textContent = '90%';
+            
+            // 重置按钮状态
+            sizePresetBtns.forEach(b => b.classList.remove('bg-primary', 'text-white'));
+            formatBtns.forEach((b, index) => {
+                if (index === 0) { // JPG按钮
+                    b.classList.remove('btn-outline');
+                    b.classList.add('btn-primary');
+                } else {
+                    b.classList.remove('btn-primary');
+                    b.classList.add('btn-outline');
+                }
+            });
+            
+            // 清空画布
+            ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        }
+        
+        // 初始化应用
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
